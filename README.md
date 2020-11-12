@@ -6,7 +6,7 @@ Suitable for IoT applications with a massive network traffic, pub/sub use cases 
 
 Can be used with a single Redis instance and later updated easily to a cluster configuration without need of any application change. Under the hood [ioredis](https://github.com/luin/ioredis) is used as a client.
 
-Simple integration in web frameworks, already available plug-in [@hearit-io/fastify-redis-channels](https://github.com/hearit-io/fastify-redis-channel#readme) for our favorite framework [Fastify](https://www.fastify.io/). 
+Simple integration in web frameworks, already available plug-in [@hearit-io/fastify-redis-channels](https://github.com/hearit-io/fastify-redis-channels#readme) for our favorite framework [Fastify](https://www.fastify.io/). 
 
 The implementation uses native Promises. 
 
