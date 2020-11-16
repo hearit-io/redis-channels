@@ -26,7 +26,8 @@ Do you want your project to grow? Then start right from the begging.
 * [Error handling](#error-handling)
 * [Running tests](#running-tests)
 * [Tunning Redis and OS](#tunning-redis-and-os)
-* [Roadmap](#roadmap)
+* [TODO](#todo)
+* [Benchmarks](#benchmarks)
 * [Project status](#project-status)
 * [Authors and acknowledgment](#authors-and-acknowledgment)
 * [License](#license)
@@ -367,17 +368,31 @@ or
 ```
 ss -s
 ```
+## Benchmarks
 
-## Roadmap
+We reached follwing values in our benchmark tests on a Linux Debain server with 64 GB memory, single i7-7700 CPU 3.60GHz:
+
+* Message size - `4 000` bytes.
+* Number of Redis servers - `1`.
+* Number of node processes - `4`.
+* Number of channels groups (i.e. chat rooms, ...) - `3 000`.
+* Number of consumers - `30 000`.
+* Number of produced messages - `300 000`.
+* Number of consumed messages - `3 000 000`.
+* Avarage processed messages per second - `24 200`.
+
+
+## TODO
 
 The list of already implemented / planed features:
 
 - [x] Limit the maximum number of channel elements in the `produce` method (capped streams).
 - [x] Implement a scenario where all consumers are served with the same messages arrived in the channels.
+- [x] Add Benchmarks.
 - [ ] Implement a scenario where consumers are served with the different part of the messages arrived in the channels.
 - [ ] Introduce an option in the `subscribe` method which allows starting message consuming form a given period in the past.
 - [ ] Implement a channel monitoring capability.
-- [ ] Type script support.
+- [ ] TypeScript support.
 
 ## Project status
 
