@@ -1,5 +1,8 @@
 # @hearit-io/redis-channels
 
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](code_of_conduct.md)
+[![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat)](http://standardjs.com/)
+
 Fast, reliable, and scalable channels implementation based on Redis streams. 
 
 Suitable for IoT applications with a massive network traffic, pub/sub use cases or any implementation with multiple producers/consumers.
