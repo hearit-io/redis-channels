@@ -45,42 +45,54 @@ $ npm install @hearit-io/redis-channels --save
 
 Requires running Redis server on a host `localhost` and a port 6379.
 
+### Every consumer processes all messages
+
 ```javascript
 'use strict'
 
 const {RedisChannels} = require('@hearit-io/redis-channels')
 
-const channels = new RedisChannels()
+// A consumer implementation
+async function consume(tunnel, channels) {
+  for await (const messages of channels.consume(tunnel)) {
+    for (const i in messages) {
+      // Do something with messages
+      console.log(messages[i].data)
+    }
+  }
+}
+
 
 async function main () {
   try {
-    const tunnel = await channels.use('room')
   
-    // Implement your consumer
-    async function consume(tunnel) {
-      for await (const messages of channels.consume(tunnel)) {
-        for (const i in messages) {
-          // Do something with messages
-          console.log(messages[i].data)
-        }
-      }
-    }
-
-    // Subscribe your tunnel
-    await channels.subscribe(tunnel)
+    const channels = new RedisChannels()
+    const tunnelProducer = await channels.use('room')
+    
+    const tunnelConsumerOne = await channels.use('room')
+    const tunnelConsumerTwo = await channels.use('room')
+    
+    // Subscribe consumer tunnels
+    await channels.subscribe(tunnelConsumerOne)
+    await channels.subscribe(tunnelConsumerTwo)
 
     // Start consuming 
-    consume(tunnel).catch((error) => {
+    consume(tunnelConsumerOne).catch((error) => {
+      console.error(error)
+    })
+    consume(tunnelConsumerTwo).catch((error) => {
       console.error(error)
     })
 
-    // Produce a message to your tunnel
-    await channels.produce(tunnel, 'Hello Wold!')
+    // Produce messages
+    await channels.produce(tunnelProducer, 'Hello')
+    await channels.produce(tunnelProducer, 'Wold')
 
-    // Unsubscribe your tunnel from a channel
-    await channels.unsubscribe(tunnel)
+    // Unsubscribe all consumers
+    await channels.unsubscribe(tunnelConsumerOne)
+    await channels.unsubscribe(tunnelConsumerTwo)
 
-    // Delete your room.
+    // Delete a channel related to the 'room'.
     await channels.delete('room')
   }
   catch (error) {
@@ -88,6 +100,34 @@ async function main () {
   }
 }
 main()
+```
+The result on the console is:
+
+```shell
+Hello
+World
+Hello
+World
+```
+
+### Consumer's team
+
+In order to create a group of consumers (a team) which cooperates consuming a different portion of the messages form the same channel, just add a `team` parameter in the `subscribe`method like this:
+
+
+```javascript
+ 
+ // Subscribe consumer tunnels
+ await channels.subscribe(tunnelConsumerOne, 'team')
+ await channels.subscribe(tunnelConsumerTwo, 'team')
+ 
+```
+
+The result on the console is:
+
+```shell
+Hello
+World
 ```
 
 ## API Documentation
@@ -233,7 +273,7 @@ Unsubscribes form a `tunnel`. This causes the `consume` method to finish with th
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| tunnel | Object | | A tunnel required to peform any operation with the channel |
+| tunnel | Object | | A tunnel required to peform any operation with the channel. Use only subscribed tunnels, otherways an exception will throw.  |
 
 Returns a **Promise**.
 
