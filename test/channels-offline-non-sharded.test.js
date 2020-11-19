@@ -60,6 +60,8 @@ async function main () {
       process.exit(0)
     })
 
+    tap.plan(7)
+
     const channelsOptions = { application: 'test', version: 1 }
     const redisOptions = getRedisOptions()
 
@@ -71,6 +73,10 @@ async function main () {
     // Create a tunnel
     const tunnel = await tap.context.channels.use(groupPrefix + '-0')
     tap.pass('Created tunnel for a group : ' + groupPrefix + '-0')
+
+    // Try to unsubscribe before subscribe
+    await tap.rejects(tap.context.channels.unsubscribe(tunnel), {},
+      'Can not unsubscribe before a tunnel subscribe call')
 
     // Subscribe consumers
     await tap.context.channels.subscribe(tunnel)
@@ -85,6 +91,14 @@ async function main () {
       'Can not produce message to stream : ' + tunnel.key)
 
     // Unsubscribe a consumer
+    tunnel.team = 'MYTEAM'
+    /*
+    try {
+      await tap.context.channels.unsubscribe(tunnel)
+    } catch (error) {
+      console.log(error)
+    }
+    */
     await tap.rejects(tap.context.channels.unsubscribe(tunnel), {},
       'Can not unsubscribe consumer : ' + tunnel.consumer)
 

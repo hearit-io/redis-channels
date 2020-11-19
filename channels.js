@@ -306,6 +306,11 @@ class RedisChannels {
   // --------------------------------------------------------------------------|
   async unsubscribe (tunnel) {
     try {
+      if (typeof tunnel === 'undefined' ||
+        typeof tunnel[tun.TEAM] === 'undefined') {
+        throw new RedisChannelsError(
+          'Can not unsubscribe, no valid tunnel object')
+      }
       const field = {
         [origin.CONTEXT]: context.UNSUBSCRIBE,
         [origin.CONTENT]: tunnel[tun.TEAM]
@@ -317,6 +322,9 @@ class RedisChannels {
       ])
     } catch (error) {
       this._log.error('Unsubscribe error: %o', error)
+      if (error instanceof RedisChannelsError) {
+        throw error
+      }
       throw new RedisChannelsError(
         'Can not unsubscribe for consumer : ' + tunnel[tun.CONSUMER],
         error)
