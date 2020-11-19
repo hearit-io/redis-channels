@@ -91,7 +91,7 @@ async function main () {
         ]
       }
     })
-    tap.pass('Redis options with URL')
+    tap.pass('Redis Channels with a Cluster')
 
     tap.throws(() => {
       const channels = new RedisChannels({ channels: { slots: 16 } })

@@ -73,9 +73,8 @@ async function main () {
     tap.pass('Created tunnel for a group : ' + groupPrefix + '-0')
 
     // Subscribe consumers
-    // let tunnel = {consumer: 'xxxxxxxxxxxxx', key: 'yyyyyyyyyyyyyyyyyyy'}
-    await tap.rejects(tap.context.channels.subscribe(tunnel), {},
-      'Can not subscribe consumer : ' + tunnel.consumer)
+    await tap.context.channels.subscribe(tunnel)
+    tap.pass('Tried to subscribe for a group : ' + groupPrefix + '-0')
 
     // Start a consumer
     await tap.rejects(consume(tunnel), {},

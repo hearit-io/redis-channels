@@ -62,38 +62,38 @@ async function main () {
     const channelsOptions = { application: 'test', version: 1, sharded: true }
     const redisOptions = getRedisOptions()
 
-    tap.context.channels = new RedisChannels({
+    const channels = new RedisChannels({
       channels: channelsOptions,
       redis: redisOptions
     })
 
     // Create a tunnel
-    await tap.rejects(tap.context.channels.use(groupPrefix + '-0'), {},
+    await tap.rejects(channels.use(groupPrefix + '-0'), {},
       'Can not create a tunnel for a group : ' + groupPrefix + '-0')
 
+    const tunnel = undefined
     // Subscribe consumers
-    const tunnel = { key: 'yyyyyyyyyyyyyyyyyyy' }
-    await tap.rejects(tap.context.channels.subscribe(tunnel), {},
-      'Can not subscribe consumer : ' + tunnel.consumer)
+    await tap.rejects(channels.subscribe(tunnel), {},
+      'Can not subscribe with unedined tunnel for a group : ' + groupPrefix + '-0')
 
     // Start a consumer
     await tap.rejects(consume(tunnel), {},
-      'Can not consume for a consumer : ' + tunnel.consumer)
+      'Can not consume from a group : ' + groupPrefix + '-0')
 
     // Produce a message
-    await tap.rejects(tap.context.channels.produce(tunnel, 'message'), {},
-      'Can not produce message to stream : ' + tunnel.key)
+    await tap.rejects(channels.produce(tunnel, 'message'), {},
+      'Can not produce message to stream for a group: ' + groupPrefix + '-0')
 
     // Unsubscribe a consumer
-    await tap.rejects(tap.context.channels.unsubscribe(tunnel), {},
-      'Can not unsubscribe consumer : ' + tunnel.consumer)
+    await tap.rejects(channels.unsubscribe(tunnel), {},
+      'Can not unsubscribe consumer for a group : ' + groupPrefix + '-0')
 
     // Delete a group
-    await tap.rejects(tap.context.channels.delete(groupPrefix + '-0'), {},
+    await tap.rejects(channels.delete(groupPrefix + '-0'), {},
       'Can not delete group : ' + groupPrefix + '-0')
 
     // Initialize a shard score
-    await tap.rejects(tap.context.channels._initShardScores(), {},
+    await tap.rejects(channels._initShardScores(), {},
       'Can not initialize the shard score')
   } catch (error) {
     console.log(error)

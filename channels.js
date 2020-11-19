@@ -247,31 +247,54 @@ class RedisChannels {
   * It creates a Redis clinet (for a blocking connection), a consumer,
   * a consumer group and a stream to access the tunnel.
   *
+  * Paramters:
+  *
+  * tunnel - a tunnel object to use.
+  *
+  * team - a name (string) of the consumer group. If not specified a
+  *        consumer name will be used instead.
+  *
+  * consumer - a unique consumer name (string) within a team . If not specified
+  *            a UUID version 4 will be generated.
+  *
   * A subscription is necessary only for a consumer not for a producer.
   *
   * On error throws an exception.
   */
   // --------------------------------------------------------------------------|
-  async subscribe (tunnel) {
-    // Creates a consumer group and a stream if not exists.
+  async subscribe (tunnel, team, consumer) {
     try {
-      if (typeof tunnel[tun.CONSUMER] !== 'undefined') {
-        return
+      if (typeof tunnel === 'undefined' ||
+        typeof tunnel[tun.KEY] === 'undefined') {
+        throw new RedisChannelsError(
+          'Can not subscribe, no valid tunnel object')
       }
-      const consumer = uuidv4().replace(/-/g, '')
-      tunnel[tun.CONSUMER] = consumer
-      // Will be changed after introduction of consumer team parameter.
-      tunnel[tun.TEAM] = consumer
-      tunnel[tun.CONNECTION] = this._duplicateRedisClient()
-      this._consumers[consumer] = tunnel
-      await this._nonBlockRedisClient.xgroup([
-        'CREATE', tunnel[tun.KEY], tunnel[tun.CONSUMER], '$', 'MKSTREAM'
-      ])
+      if (typeof consumer === 'undefined') {
+        tunnel[tun.CONSUMER] = uuidv4().replace(/-/g, '')
+      } else {
+        tunnel[tun.CONSUMER] = consumer
+      }
+      if (typeof team === 'undefined') {
+        tunnel[tun.TEAM] = tunnel[tun.CONSUMER]
+      } else {
+        tunnel[tun.TEAM] = team
+      }
+
+      // Tries to create a consumer group and a stream if not exists.
+      try {
+        await this._nonBlockRedisClient.xgroup([
+          'CREATE', tunnel[tun.KEY], tunnel[tun.TEAM], '$', 'MKSTREAM'
+        ])
+      } catch { }
+
+      // Creates a redis client if necessery.
+      if (!(tunnel[tun.CONSUMER] in this._consumers)) {
+        tunnel[tun.CONNECTION] = this._duplicateRedisClient()
+        this._consumers[tunnel[tun.CONSUMER]] = tunnel
+      }
     } catch (error) {
       this._log.error('Subscribe error: %o', error)
-      throw new RedisChannelsError(
-        'Can not subscribe consumer : ' + tunnel[tun.CONSUMER],
-        error)
+      throw error
     }
   }
 
@@ -285,7 +308,7 @@ class RedisChannels {
     try {
       const field = {
         [origin.CONTEXT]: context.UNSUBSCRIBE,
-        [origin.CONTENT]: tunnel[tun.CONSUMER]
+        [origin.CONTENT]: tunnel[tun.TEAM]
       }
 
       await this._nonBlockRedisClient.xadd([
@@ -381,15 +404,13 @@ class RedisChannels {
                 field[origin.CONTENT] === type) {
                 result.push({ [msg.ID]: id, [msg.DATA]: message })
               } else if (field[origin.CONTEXT] === context.UNSUBSCRIBE &&
-                field[origin.CONTENT] === tunnel[tun.CONSUMER]) {
-                // Cleanup redis consumer/group
-                await this._deleteRedisConsumer(tunnel)
-                await this._deleteRedisConsumerGroup(tunnel)
+                field[origin.CONTENT] === tunnel[tun.TEAM]) {
+                // Cleanup a redis consumer and a group
+                await this._deleteRedisConsumerAndGroup(tunnel)
 
                 await this._consumers[tunnel[tun.CONSUMER]][tun.CONNECTION].quit()
                 this._consumers[tunnel[tun.CONSUMER]][tun.CONNECTION].removeAllListeners()
                 delete this._consumers[tunnel[tun.CONSUMER]]
-
                 return
               }
             }
@@ -405,13 +426,12 @@ class RedisChannels {
   }
 
   /*
-  * Closes all redis clients and deletes all consumers/consumer groups
+  * Closes all redis clients and deletes all consumers and consumer groups
   */
   // --------------------------------------------------------------------------|
   async cleanup () {
     for (const i in this._consumers) {
-      await this._deleteRedisConsumer(this._consumers[i])
-      await this._deleteRedisConsumerGroup(this._consumers[i])
+      await this._deleteRedisConsumerAndGroup(this._consumers[i])
 
       await this._consumers[i][tun.CONNECTION].quit()
       this._consumers[i][tun.CONNECTION].removeAllListeners()
@@ -422,21 +442,33 @@ class RedisChannels {
   }
 
   /*
-  * Deletes a redis consumer
+  * Deletes a redis consumer and a group
   */
   // --------------------------------------------------------------------------|
-  async _deleteRedisConsumer (tunnel) {
-    await this._nonBlockRedisClient.xgroup(['DELCONSUMER', tunnel[tun.KEY],
-      tunnel[tun.TEAM], tunnel[tun.CONSUMER]])
-  }
+  async _deleteRedisConsumerAndGroup (tunnel) {
+    try {
+      // Deletes a consumer
+      await this._nonBlockRedisClient.xgroup(['DELCONSUMER', tunnel[tun.KEY],
+        tunnel[tun.TEAM], tunnel[tun.CONSUMER]])
 
-  /*
-  * Deletes a redis consumer group
-  */
-  // --------------------------------------------------------------------------|
-  async _deleteRedisConsumerGroup (tunnel) {
-    await this._nonBlockRedisClient.xgroup(['DESTROY', tunnel[tun.KEY],
-      tunnel[tun.TEAM]])
+      // Deletes a consumer group
+      const teams =
+        await this._nonBlockRedisClient.xinfo(['GROUPS', tunnel[tun.KEY]])
+      for (const i in teams) {
+        // We can not rely on fields exact positions - according to
+        // https://redis.io/commands/xinfo.
+        const k = teams[i].indexOf('name')
+        if (k < 0 || teams[i][k + 1] !== tunnel[tun.TEAM]) {
+          continue
+        }
+        const j = teams[i].indexOf('consumers')
+        if (j >= 0 && teams[i][j + 1] === 0) {
+          await this._nonBlockRedisClient.xgroup(['DESTROY', tunnel[tun.KEY],
+            tunnel[tun.TEAM]])
+        }
+        break
+      }
+    } catch { }
   }
 
   /*
