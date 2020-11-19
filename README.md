@@ -97,7 +97,7 @@ Creates an instance of a RedisChannels class. It uses [ioredis](https://github.c
 | --- | --- | --- | --- |
 | channels | Object | | Options related to channels |
 | channels.application | string | 'app' | Application name, used as a prefix part in the Redis key |
-| channels.version | number|string | 1 | Version number, used as a prefix part in the Redis key |
+| channels.version | number | 1 |  Version number, used as a prefix part in the Redis key |
 | channels.schema | string | 'channel' | Schema name, used as a prefix part in the Redis key |
 | channels.overflow | number | 100 | Trims the channel size (approximately), but never less than the specified number of elements. You must choose a value suitable for your use case and available memory |
 | channels.slots | number | 32 | The number of pre-sharded slots. Possible values are `32` or `64` |
