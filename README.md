@@ -3,12 +3,14 @@
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](code_of_conduct.md)
 [![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat)](http://standardjs.com/)
 ![NPM License](https://img.shields.io/npm/l/@hearit-io/redis-channels)
-![NPM Downloads](https://img.shields.io/npm/dw/@hearit-io/redis-channels)
+![NPM Downloads](https://img.shields.io/npm/dt/@hearit-io/redis-channels)
 
 
 Fast, reliable, and scalable channels implementation based on Redis streams. 
 
 Suitable for IoT applications with a massive network traffic, pub/sub use cases or any implementation with multiple producers/consumers.
+
+Implements a possiblity to scale the message processing across different consumers, without single consumers having to process all the messages. A group of consumers (a team) can cooperate consuming a different portion of the messages form the same channel.
 
 Can be used with a single Redis instance and later updated easily to a cluster configuration without need of any application change. Under the hood [ioredis](https://github.com/luin/ioredis) is used as a client.
 
@@ -35,7 +37,7 @@ Do you want your project to grow? Then start right from the begging.
 
 ## Install
 
-```
+```shell
 $ npm install @hearit-io/redis-channels --save
 ```
 
@@ -43,7 +45,7 @@ $ npm install @hearit-io/redis-channels --save
 
 Requires running Redis server on a host `localhost` and a port 6379.
 
-```
+```javascript
 'use strict'
 
 const {RedisChannels} = require('@hearit-io/redis-channels')
@@ -115,7 +117,7 @@ Creates an instance of a RedisChannels class. It uses [ioredis](https://github.c
 
 Channels will use a Redis cluster connected to three nodes with enabled offline queue in a sharded mode. 
 
-```
+```javascript
 'use strict'
 
 const {RedisChannels} = require('@hearit-io/redis-channels')
@@ -140,7 +142,7 @@ const channels = new RedisChannels(options)
 
 Channels will use a single Redis connection defined with a URL and keep alive set to 10 seconds.
 
-```
+```javascript
 'use strict'
 
 const {RedisChannels} = require('@hearit-io/redis-channels')
@@ -156,7 +158,7 @@ const channels = new RedisChannels(options)
 
 The same as above but defined with a host and port.
 
-```
+```javascript
 'use strict'
 
 const {RedisChannels} = require('@hearit-io/redis-channels')
@@ -197,13 +199,15 @@ Produces a message to a channel.
 Returns a **Promise**.
 
 
-#### channels.subscribe(tunnel)
+#### channels.subscribe(tunnel[, team, consumer])
 
 Subscribes a `tunnel` to make possible a consume operation.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | tunnel | Object | | A tunnel required to perform any operation with the channel |
+| team | string | the same as a consumer | A name of a consumer team. If specified, every consumer within a team will receive different part of the messages arrived in the channels  |
+| consumer | string | a generated v4 uuid | A unique consumer name within a team  |
 
 Returns a **Promise**.
 
@@ -262,7 +266,7 @@ It has following properties:
 
 A usage example of an error handling:
 
-```
+```javascript
 'use strict'
 const {RedisChannels, RedisChannelsError} = require('@hearit-io/redis-channels')
 
@@ -286,7 +290,7 @@ To run the test cases a running Redis server is required.
 
 In the environment variable REDIS_NODES you can set a list of Redis nodes separated by space as example:
 
-```
+```shell
 export REDIS_NODES="127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382"
 ```
 If there are more than one entry in the list a connection to a Redis Cluster will be used for the tests. 
@@ -298,7 +302,7 @@ After each test, the data base will be FLUSHED. Please make sure there is **no v
 
 Start the unit tests with:
 
-```
+```shell
 npm test
 ```
 
@@ -318,7 +322,7 @@ You can use following environment variables to configure your tests:
 
 Following command starts four `node` processes:
 
-```
+```shell
 cd ./test/heavy-load 
 ./heavy-run.sh
 ```
@@ -327,7 +331,7 @@ The test results for each process can be found in the `./test/heavy-load/log` di
 
 To clean-up the data base call:
 
-```
+```shell
 ./heavy-run-cleanup.sh
 ```
 
@@ -342,30 +346,30 @@ On a Unix based system increase the maximum allowed number of temporary ports.
 
 Check the current system value of local port range with:
 
-```
+```shell
 cat /proc/sys/net/ipv4/ip_local_port_range  
 ```
 
 Increase the value by defining a bigger range, for example with the command:
 
-```
+```shell
 echo "1024 65535" > /proc/sys/net/ipv4/ip_local_port_range
 ```
 To make the change permanent add following line in `/etc/sysctl.conf` file:
 
-```
+```shell
 net.ipv4.ip_local_port_range = 1024 65535
 ```
 
 Check the used TCP and UDP connection with the command:
 
-```
+```shell
 netstat -an | grep -e tcp -e udp | wc -l
 ```
 
 or 
  
-```
+```shell
 ss -s
 ```
 ## Benchmarks
@@ -389,7 +393,7 @@ The list of already implemented / planed features:
 - [x] Limit the maximum number of channel elements in the `produce` method (capped streams).
 - [x] Implement a scenario where all consumers are served with the same messages arrived in the channels.
 - [x] Add Benchmarks.
-- [ ] Implement a scenario where consumers are served with the different part of the messages arrived in the channels.
+- [x] Implement a scenario where consumers are served with the different part of the messages arrived in the channels.
 - [ ] Introduce an option in the `subscribe` method which allows starting message consuming form a given period in the past.
 - [ ] Implement a channel monitoring capability.
 - [ ] TypeScript support.
