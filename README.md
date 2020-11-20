@@ -433,8 +433,9 @@ The list of already implemented / planed features:
 - [x] Limit the maximum number of channel elements in the `produce` method (capped streams).
 - [x] Implement a scenario where all consumers are served with the same messages arrived in the channels.
 - [x] Add Benchmarks.
-- [x] Implement a scenario where consumers are served with the different part of the messages arrived in the channels.
-- [ ] Introduce an option in the `subscribe` method which allows starting message consuming form a given period in the past.
+- [x] Implement a scenario where consumers are served with the different part of the messages arrived in the channels (a work in a team).
+- [ ] Introduce a parameter in the `consume` method which allows starting message consuming form a given period in the past.
+- [ ] Implement consume with acknowledge functionality.
 - [ ] Implement a channel monitoring capability.
 - [ ] TypeScript support.
 
