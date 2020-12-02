@@ -383,12 +383,23 @@ class RedisChannels {
   * timeout  - a blocking timeout in milliseconds. Default value is 10000.
   *
   * On error throws an exeption
+  *
+  * TODO!!!
+  *
+  * If a consumers are working in a team it is possible that one consumer
+  * gets two 'unsubscrbe' messages. After the processing of the fisrt it will
+  * just finish. In this case some other consumer in a team will not be
+  * recieve his 'unsubscribe' message.
+  *
+  * In this case a consumer should produce back all 'unsubscribe' messages,
+  * which should be recieved by all outher consumers within the same team.
   */
   // --------------------------------------------------------------------------|
   async * consume (tunnel, type = defaultOriginType,
     count = maxMessageStreamConsumePerRun,
     timeout = blockStreamConsumerTimeOutMs) {
     try {
+      let unsubscribe = false
       while (true) {
         const result = []
         const data = await
@@ -413,16 +424,26 @@ class RedisChannels {
                 result.push({ [msg.ID]: id, [msg.DATA]: message })
               } else if (field[origin.CONTEXT] === context.UNSUBSCRIBE &&
                 field[origin.CONTENT] === tunnel[tun.TEAM]) {
-                // Cleanup a redis consumer and a group
-                await this._deleteRedisConsumerAndGroup(tunnel)
+                if (unsubscribe === false) {
+                  // Cleanup a redis consumer and a group
+                  await this._deleteRedisConsumerAndGroup(tunnel)
 
-                await this._consumers[tunnel[tun.CONSUMER]][tun.CONNECTION].quit()
-                this._consumers[tunnel[tun.CONSUMER]][tun.CONNECTION].removeAllListeners()
-                delete this._consumers[tunnel[tun.CONSUMER]]
-                return
+                  await this._consumers[
+                    tunnel[tun.CONSUMER]][tun.CONNECTION].quit()
+                  this._consumers[
+                    tunnel[tun.CONSUMER]][tun.CONNECTION].removeAllListeners()
+                  delete this._consumers[tunnel[tun.CONSUMER]]
+                  unsubscribe = true
+                } else {
+                  // Puts back any message with an unsubscribe context.
+                  await this.unsubscribe(tunnel)
+                }
               }
             }
           }
+        }
+        if (unsubscribe) {
+          return result
         }
         yield result
       }

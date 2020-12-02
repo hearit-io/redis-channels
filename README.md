@@ -336,6 +336,8 @@ export REDIS_NODES="127.0.0.1:6380 127.0.0.1:6381 127.0.0.1:6382"
 If there are more than one entry in the list a connection to a Redis Cluster will be used for the tests. 
 If REDIS_NODES is not set a connection to 127.0.0.1:6379 will be tried.
 
+Similar to a variable `REDIS_NODES`, a variable `REDIS_DOWN_NODES` is used in the test cases covering missing connection to a Redis server. A default value is '127.0.0.1:3333'.
+
 After each test, the data base will be FLUSHED. Please make sure there is **no valuable data** in the data base before running the tests!
 
 ### Unit tests

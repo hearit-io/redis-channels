@@ -75,6 +75,8 @@ async function main () {
       process.exit(0)
     })
 
+    tap.plan(16)
+
     const channelsOptions = { application: 'test', version: 1, sharded: true }
     const redisOptions = getRedisOptions()
 
