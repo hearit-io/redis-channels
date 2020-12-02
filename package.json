@@ -16,7 +16,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/hearit-io/redis-channel.git"
+    "url": "git+https://github.com/hearit-io/redis-channels.git"
   },
   "keywords": [
     "redis",
