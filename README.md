@@ -462,7 +462,7 @@ The main goal of [hearit.io](https://hearit.io) is to make accessible the world 
 
 We will be grateful to you if you make awareness to other people of our project. 
 
-To finance our idea, we would be glad to support and work on your projects. Contact [Emil](email:emil@hearit.io) for details and our availability.
+To finance our idea, we would be glad to support and work on your projects. Contact Emil <emil@hearit.io> for details and our availability.
 
 Other open-source packages, part of our project, will be available soon. We use [Fastify](http://fastify.io) as an application framework.
 
