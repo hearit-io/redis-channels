@@ -28,13 +28,12 @@
 
 const tap = require('tap')
 const { RedisChannels } = require('../')
-const { redis, flushdb, getRedisOptions } = require('./util')
+const { redis, flushdb, getRedisOptions, sleep } = require('./util')
 
 const groupPrefix = process.env.GROUP_PREFIX || 'GROUP'
-const numberOfGroups = process.env.NUMBER_OF_GROUPS || 2
-const numberOfMessagesToProducePerGroup =
-  process.env.NUMBER_OF_MESSAGES || 10
-const numberOfConsumersPerGroup = process.env.NUMBER_OF_CONSUMERS || 2
+const numberOfGroups = 2
+const numberOfMessagesToProducePerGroup = 10
+const numberOfConsumersPerGroup = 2
 
 tap.comment('Validates all methods in a sharded setup.')
 tap.comment('Group prefix : ' + groupPrefix)
@@ -117,6 +116,8 @@ async function main () {
     for (const i in tap.context.tunnels) {
       promises.push(consume(i, numberOfMessagesToProducePerGroup))
     }
+
+    await sleep(1000)
 
     // Produce messages
     await tap.test('Produce', async t => {

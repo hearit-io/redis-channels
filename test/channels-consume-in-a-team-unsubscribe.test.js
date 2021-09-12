@@ -58,7 +58,7 @@ async function main () {
       process.exit(0)
     })
 
-    tap.plan(7)
+    tap.plan(11)
 
     const channelsOptions = { application: 'test', version: 1 }
     const redisOptions = getRedisOptions()
@@ -70,12 +70,16 @@ async function main () {
 
     // Create tunnels
     const tunnelOne = await channels.use(groupPrefix)
-    await channels.subscribe(tunnelOne, 'team')
+    await channels.subscribe(tunnelOne, 'team', 'one')
     tap.pass('Subscribed a consumer one')
 
     const tunnelTwo = await channels.use(groupPrefix)
-    await channels.subscribe(tunnelTwo, 'team')
+    await channels.subscribe(tunnelTwo, 'team', 'two')
     tap.pass('Subscribed a consumer two')
+
+    const tunnelThree = await channels.use(groupPrefix)
+    await channels.subscribe(tunnelThree, 'another', 'three')
+    tap.pass('Subscribed a consumer three (another team)')
 
     // Start consumers, with a delays between the iterations.
     const promiseOne = consume(channels, tunnelOne, tap, 1000)
@@ -88,7 +92,11 @@ async function main () {
     await channels.produce(tunnelTwo, 1)
 
     await channels.unsubscribe(tunnelOne)
+    tap.pass('Unsubscribe a consumer one')
+    await channels.unsubscribe(tunnelOne)
+    tap.pass('Unsubscribe a consumer one (again)')
     await channels.unsubscribe(tunnelTwo)
+    tap.pass('Unsubscribe a consumer two')
 
     // ----------------------------------------------------------------------------|
     await tap.test('Check total consumed messages', async t => {
@@ -100,13 +108,13 @@ async function main () {
       await t.same(count, 2, 'All messages has been consumed')
     })
 
+    await channels.cleanup()
+    await tap.pass('All channels cleaned up.')
+
     const client = redis()
     const consumers = await client.xinfo(['GROUPS', tunnelOne.key])
     tap.equal(consumers.length, 0, 'No consumers for stream ' + tunnelOne.key)
     await client.quit()
-
-    await channels.cleanup()
-    await tap.pass('All channels cleaned up.')
   } catch (error) {
     console.log(error)
   }

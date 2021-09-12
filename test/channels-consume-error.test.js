@@ -26,13 +26,12 @@
 
 const tap = require('tap')
 const { RedisChannels } = require('../')
-const { redis, flushdb, getRedisOptions } = require('./util')
+const { redis, flushdb, getRedisOptions, sleep } = require('./util')
 
 const groupPrefix = process.env.GROUP_PREFIX || 'GROUP'
-const numberOfGroups = process.env.NUMBER_OF_GROUPS || 1
-const numberOfMessagesToProducePerGroup =
-  process.env.NUMBER_OF_MESSAGES || 1
-const numberOfConsumersPerGroup = process.env.NUMBER_OF_CONSUMERS || 1
+const numberOfGroups = 1
+const numberOfMessagesToProducePerGroup = 1
+const numberOfConsumersPerGroup = 1
 
 tap.comment('Validates consumer behavior after blocking timeout expire')
 tap.comment('Group prefix : ' + groupPrefix)
@@ -51,47 +50,141 @@ async function main () {
       process.exit(0)
     })
 
-    await tap.test('Channels closed in between', async t => {
-      const channelsOptions = { application: 'test', version: 1 }
-      const redisOptions = getRedisOptions()
+    await tap.test(
+      'Channels group deleted in between (team work)',
+      async t => {
+        const channelsOptions = { application: 'test', version: 1 }
+        const redisOptions = getRedisOptions()
 
-      const channels = new RedisChannels({
-        channels: channelsOptions,
-        redis: redisOptions
-      })
+        const channels = new RedisChannels({
+          channels: channelsOptions,
+          redis: redisOptions
+        })
 
-      const tunnel = await channels.use(groupPrefix + '-0')
-      await t.pass('Created consumer: ' + tunnel.consumer +
+        const tunnel = await channels.use(groupPrefix + '-0')
+        await t.pass('Created consumer: ' + tunnel.consumer +
             ' for group : ' + groupPrefix + '-0')
 
-      await channels.subscribe(tunnel)
-      await t.pass('Subscribed consumer : ' + tunnel.consumer)
+        await channels.subscribe(tunnel, 'team', 'consumer')
+        await t.pass('Subscribed consumer : ' + tunnel.consumer)
 
-      // Start consumer
-      async function consume (channels,
-        tunnel, numberOfMessagesToProducePerGroup) {
-        let k = 0
-        for await (const messages of channels.consume(tunnel)) {
-          for (const i in messages) {
-            if (messages[i].data !== k.toString()) {
-              await t.fail('Consumer : ' + tunnel.consumer +
+        // Start consumer
+        async function consume (channels,
+          tunnel, numberOfMessagesToProducePerGroup) {
+          let k = 0
+          for await (const messages of channels.consume(tunnel)) {
+            for (const i in messages) {
+              if (messages[i].data !== k.toString()) {
+                await t.fail('Consumer : ' + tunnel.consumer +
                 ' expected : ' + k + ', got ' + messages[i].data + ' message')
-            }
-            k = k + 1
-            if (k === numberOfMessagesToProducePerGroup) {
-              await t.pass('Consumer : ' + tunnel.consumer + ' all ' + k +
+              }
+              k = k + 1
+              if (k === numberOfMessagesToProducePerGroup) {
+                await t.pass('Consumer : ' + tunnel.consumer + ' all ' + k +
                 ' messages recieved')
+              }
             }
           }
         }
-      }
 
-      const promise = consume(channels, tunnel, numberOfMessagesToProducePerGroup)
-      t.rejects(promise, {}, 'Consumer done with error')
+        const promise = consume(channels, tunnel, numberOfMessagesToProducePerGroup)
+        t.rejects(promise, {}, 'Consumer done with error')
 
-      await channels.delete(groupPrefix + '-0')
-      t.pass('Channels group deleted')
-    })
+        // await sleep(1000)
+        await channels.delete(groupPrefix + '-0')
+        t.pass('Channels group deleted')
+      })
+
+    await tap.test(
+      'Channels group deleted in between (immediately after consumme call)',
+      async t => {
+        const channelsOptions = { application: 'test', version: 1 }
+        const redisOptions = getRedisOptions()
+
+        const channels = new RedisChannels({
+          channels: channelsOptions,
+          redis: redisOptions
+        })
+
+        const tunnel = await channels.use(groupPrefix + '-0')
+        await t.pass('Created consumer: ' + tunnel.consumer +
+            ' for group : ' + groupPrefix + '-0')
+
+        await channels.subscribe(tunnel)
+        await t.pass('Subscribed consumer : ' + tunnel.consumer)
+
+        // Start consumer
+        async function consume (channels,
+          tunnel, numberOfMessagesToProducePerGroup) {
+          let k = 0
+          for await (const messages of channels.consume(tunnel)) {
+            for (const i in messages) {
+              if (messages[i].data !== k.toString()) {
+                await t.fail('Consumer : ' + tunnel.consumer +
+                ' expected : ' + k + ', got ' + messages[i].data + ' message')
+              }
+              k = k + 1
+              if (k === numberOfMessagesToProducePerGroup) {
+                await t.pass('Consumer : ' + tunnel.consumer + ' all ' + k +
+                ' messages recieved')
+              }
+            }
+          }
+        }
+
+        const promise = consume(channels, tunnel, numberOfMessagesToProducePerGroup)
+        t.rejects(promise, {}, 'Consumer done with error')
+
+        // await sleep(1000)
+        await channels.delete(groupPrefix + '-0')
+        t.pass('Channels group deleted')
+      })
+
+    await tap.test(
+      'Channels group deleted in between (one second after a consumme call)',
+      async t => {
+        const channelsOptions = { application: 'test', version: 1 }
+        const redisOptions = getRedisOptions()
+
+        const channels = new RedisChannels({
+          channels: channelsOptions,
+          redis: redisOptions
+        })
+
+        const tunnel = await channels.use(groupPrefix + '-0')
+        await t.pass('Created consumer: ' + tunnel.consumer +
+            ' for group : ' + groupPrefix + '-0')
+
+        await channels.subscribe(tunnel)
+        await t.pass('Subscribed consumer : ' + tunnel.consumer)
+
+        // Start consumer
+        async function consume (channels,
+          tunnel, numberOfMessagesToProducePerGroup) {
+          let k = 0
+          for await (const messages of channels.consume(tunnel)) {
+            for (const i in messages) {
+              if (messages[i].data !== k.toString()) {
+                await t.fail('Consumer : ' + tunnel.consumer +
+                ' expected : ' + k + ', got ' + messages[i].data + ' message')
+              }
+              k = k + 1
+              if (k === numberOfMessagesToProducePerGroup) {
+                await t.pass('Consumer : ' + tunnel.consumer + ' all ' + k +
+                ' messages recieved')
+              }
+            }
+          }
+        }
+
+        const promise = consume(channels, tunnel, numberOfMessagesToProducePerGroup)
+        promise.catch(() => {})
+        t.pass('Consumer finished successfully')
+
+        await sleep(1000)
+        await channels.delete(groupPrefix + '-0')
+        t.pass('Channels group deleted')
+      })
   } catch (error) {
     console.log(error)
   }

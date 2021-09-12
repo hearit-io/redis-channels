@@ -27,13 +27,12 @@
 
 const tap = require('tap')
 const { RedisChannels } = require('../')
-const { redis, flushdb, getRedisOptions } = require('./util')
+const { redis, flushdb, getRedisOptions, sleep } = require('./util')
 
 const groupPrefix = process.env.GROUP_PREFIX || 'GROUP'
-const numberOfGroups = process.env.NUMBER_OF_GROUPS || 2
-const numberOfMessagesToProducePerGroup =
-  process.env.NUMBER_OF_MESSAGES || 10
-const numberOfConsumersPerGroup = process.env.NUMBER_OF_CONSUMERS || 2
+const numberOfGroups = 2
+const numberOfMessagesToProducePerGroup = 10
+const numberOfConsumersPerGroup = 2
 
 tap.comment('Validates all methods in a non sharded setup')
 tap.comment('Group prefix : ' + groupPrefix)
@@ -92,8 +91,7 @@ async function main () {
       for (let g = 0; g < numberOfGroups; g++) {
         for (let i = 0; i < numberOfConsumersPerGroup; i++) {
           const tunnel = await t.context.channels.use(groupPrefix + '-' + g)
-          t.pass('Created consumer: ' + tunnel.consumer +
-            ' for group : ' + groupPrefix + '-' + g)
+          t.pass('Created tunnel for group : ' + groupPrefix + '-' + g)
           t.context.tunnels.push(tunnel)
           if (i === 0) {
             t.context.groups.push(tunnel)
@@ -115,6 +113,8 @@ async function main () {
     for (const i in tap.context.tunnels) {
       promises.push(consume(i, numberOfMessagesToProducePerGroup))
     }
+
+    await sleep(1000)
 
     // Produce messages
     await tap.test('Produce', async t => {

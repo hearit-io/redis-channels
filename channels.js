@@ -95,6 +95,9 @@ class RedisChannels {
 
     this._consumers = {}
 
+    this._workInTeam = false
+    this._consumerIsGennerated = true
+
     if (typeof channels[opt.LOG] === 'undefined') {
       this._log = require('abstract-logging')
     } else {
@@ -224,12 +227,28 @@ class RedisChannels {
   // --------------------------------------------------------------------------|
   async delete (group) {
     try {
+      let keyStream = this._prefix + sep.STREAM + group
       if (this._sharded === false) {
+        // Unsubscribe all related consumers
+        for (const i in this._consumers) {
+          if (this._consumers[i][tun.KEY] === keyStream) {
+            await this.unsubscribe(this._consumers[i])
+          }
+        }
         await this._nonBlockRedisClient.del([this._prefix + sep.STREAM + group])
         return
       }
-      const keyStream =
+
+      keyStream =
         await this._nonBlockRedisClient.hget([this._keyHash, group])
+
+      // Unsubscribe all related consumers
+      for (const i in this._consumers) {
+        if (this._consumers[i][tun.KEY] === keyStream) {
+          await this.unsubscribe(this._consumers[i])
+        }
+      }
+
       const slot = keyStream.match(/\[([0-9]+)\]$/)[1]
       await this._nonBlockRedisClient.del([keyStream])
       await this._nonBlockRedisClient.hdel([this._keyHash, group])
@@ -271,20 +290,26 @@ class RedisChannels {
       }
       if (typeof consumer === 'undefined') {
         tunnel[tun.CONSUMER] = uuidv4().replace(/-/g, '')
+        this._consumerIsGennerated = true
       } else {
         tunnel[tun.CONSUMER] = consumer
+        this._consumerIsGennerated = false
       }
       if (typeof team === 'undefined') {
         tunnel[tun.TEAM] = tunnel[tun.CONSUMER]
+        this._workInTeam = false
       } else {
         tunnel[tun.TEAM] = team
+        this._workInTeam = true
       }
 
       // Tries to create a consumer group and a stream if not exists.
       try {
+        // We need to create a stream even we do not need a group.
         await this._nonBlockRedisClient.xgroup([
           'CREATE', tunnel[tun.KEY], tunnel[tun.TEAM], '$', 'MKSTREAM'
         ])
+        await this._deleteRedisConsumerAndGroup(tunnel)
       } catch { }
 
       // Creates a redis client if necessery.
@@ -307,13 +332,17 @@ class RedisChannels {
   async unsubscribe (tunnel) {
     try {
       if (typeof tunnel === 'undefined' ||
-        typeof tunnel[tun.TEAM] === 'undefined') {
+        typeof tunnel[tun.TEAM] === 'undefined' ||
+        typeof tunnel[tun.CONSUMER] === 'undefined') {
         throw new RedisChannelsError(
           'Can not unsubscribe, no valid tunnel object')
       }
       const field = {
         [origin.CONTEXT]: context.UNSUBSCRIBE,
-        [origin.CONTENT]: tunnel[tun.TEAM]
+        [origin.CONTENT]: {
+          [tun.TEAM]: tunnel[tun.TEAM],
+          [tun.CONSUMER]: tunnel[tun.CONSUMER]
+        }
       }
 
       await this._nonBlockRedisClient.xadd([
@@ -343,6 +372,8 @@ class RedisChannels {
   * type - a string, can be used to distinguish between message sources.
   *        Default value is 'all'.
   *
+  * Returns the id of the produced message
+  *
   * On error throws an error
   */
   // --------------------------------------------------------------------------|
@@ -353,10 +384,11 @@ class RedisChannels {
         [origin.CONTENT]: type
       }
 
-      await this._nonBlockRedisClient.xadd([
+      const id = await this._nonBlockRedisClient.xadd([
         tunnel[tun.KEY], 'MAXLEN', '~', this._overflow, '*',
         JSON.stringify(field), message
       ])
+      return id
     } catch (error) {
       this._log.error('Produce error: %o', error)
       throw new RedisChannelsError(
@@ -381,14 +413,46 @@ class RedisChannels {
   *          Default value is 100.
   *
   * timeout  - a blocking timeout in milliseconds. Default value is 10000.
+  *            If a blocking timeout is 0 a consumer will block forever.
+  *
+  * fromId - start consuming messages newer then a given id. Default value
+  *          is set to '>' or '*' whether if it is consumed in a team or not.
+  *          This means staring form messages that were never
+  *          delivered to any other consumer.
+  *          The format is <time-in-milisecounds>-<sequence> or only the
+  *          miliseconds part of the id.
+  *
+  * messageOnTimeOut - a bollean flag. If set, in a case of a timeout a
+  *         message array [{id: <last-consumed-id> data: null}] will be
+  *         returned to indecate it. If there were no consumed messages
+  *         the id value will be undefined. Default value is false.
+  * -----------------------------------------------------------------------
+  * TODO!!
+  * -----------------------------------------------------------------------
+  * acknowledge - a boolean flag. If it is set to true an explicite
+  *               confirmation (call of an acknowledge method) after a
+  *               successful processing is required. If set to false
+  *               an acknowledgement is performed automatically.
+  *               The value makes seanse when consuming in a team.
+  *
+  *
+  * Important!!!
+  *
+  * If the acknowledge flag is set a call of an acknowledge method is
+  * required after a successful processing. Otherwise the number of pending
+  * messages in the Redis will grow and will ocuppy a valuable memory.
+  * -----------------------------------------------------------------------
   *
   * On error throws an exeption
   *
-  * TODO!!!
+  * Note:
+  *
+  * The method processes messages containg controlling context (for example
+  * a command to unsubscribe and finsh with a processing).
   *
   * If a consumers are working in a team it is possible that one consumer
   * gets two 'unsubscrbe' messages. After the processing of the fisrt it will
-  * just finish. In this case some other consumer in a team will not be
+  * just finish. In this case some other consumer in a team will not
   * recieve his 'unsubscribe' message.
   *
   * In this case a consumer should produce back all 'unsubscribe' messages,
@@ -397,21 +461,74 @@ class RedisChannels {
   // --------------------------------------------------------------------------|
   async * consume (tunnel, type = defaultOriginType,
     count = maxMessageStreamConsumePerRun,
-    timeout = blockStreamConsumerTimeOutMs) {
+    timeout = blockStreamConsumerTimeOutMs, fromId = '>',
+    messageOnTimeOut = false) {
     try {
       let unsubscribe = false
+      /*
+      let pendingEntries = false
+      */
+
+      let currentId = fromId
+      let lastId
+
+      if (fromId === '>' && this._workInTeam === false) {
+        currentId = '$'
+      }
+
+      /*
+      if (currentId !== '>' && this._workInTeam) {
+        pendingEntries = true
+      }
+      */
+
       while (true) {
         const result = []
-        const data = await
-        this._consumers[tunnel[tun.CONSUMER]][tun.CONNECTION].xreadgroup([
-          'GROUP', tunnel[tun.TEAM], tunnel[tun.CONSUMER],
-          'COUNT', count,
-          'BLOCK', timeout,
-          'NOACK', 'STREAMS', tunnel[tun.KEY], '>'
-        ])
+        let data
+
+        if (this._workInTeam === false) {
+          data = await
+          this._consumers[tunnel[tun.CONSUMER]][tun.CONNECTION].xread([
+            'COUNT', count,
+            'BLOCK', timeout,
+            'STREAMS', tunnel[tun.KEY], currentId
+          ])
+        } else {
+          data = await
+          this._consumers[tunnel[tun.CONSUMER]][tun.CONNECTION].xreadgroup([
+            'GROUP', tunnel[tun.TEAM], tunnel[tun.CONSUMER],
+            'COUNT', count,
+            'BLOCK', timeout,
+            'NOACK', 'STREAMS', tunnel[tun.KEY], currentId
+          ])
+        }
+        // We have a time out
         if (data === null) {
+          // If we are using XREAD we should check if the stream exist.
+          // Otherwise a consumer will not finish after a delete stream
+          // operation and a timeout.
+          if (this._workInTeam === false) {
+            await this._consumers[tunnel[tun.CONSUMER]][tun.CONNECTION].xinfo([
+              'STREAM', tunnel[tun.KEY]
+            ])
+          }
+          if (messageOnTimeOut) {
+            result.push({
+              [msg.ID]: lastId,
+              [msg.DATA]: null
+            })
+            yield result
+          }
           continue
         }
+
+        /*
+        // Relevant for a calls with a xreadgroup
+        if (data[0][1].length === 0 && this._workInTeam) {
+          pendingEntries = false
+          currentId = '>'
+        }
+        */
         for (const stream of data) {
           for (const event of stream[1]) {
             const id = event[0]
@@ -419,24 +536,46 @@ class RedisChannels {
             for (let i = 0; i < messages.length; i += 2) {
               const field = JSON.parse(messages[i])
               const message = messages[i + 1]
-              if (field[origin.CONTEXT] === context.ORIGIN &&
-                field[origin.CONTENT] === type) {
-                result.push({ [msg.ID]: id, [msg.DATA]: message })
-              } else if (field[origin.CONTEXT] === context.UNSUBSCRIBE &&
-                field[origin.CONTENT] === tunnel[tun.TEAM]) {
-                if (unsubscribe === false) {
-                  // Cleanup a redis consumer and a group
-                  await this._deleteRedisConsumerAndGroup(tunnel)
+              if (this._workInTeam === false) {
+                currentId = id
+              }
+              /*
+              if (pendingEntries) {
+                currentId = id
+              }
+              */
 
-                  await this._consumers[
-                    tunnel[tun.CONSUMER]][tun.CONNECTION].quit()
-                  this._consumers[
-                    tunnel[tun.CONSUMER]][tun.CONNECTION].removeAllListeners()
-                  delete this._consumers[tunnel[tun.CONSUMER]]
-                  unsubscribe = true
+              // --------------------------------------------------------------------------|
+              if (field[origin.CONTEXT] === context.ORIGIN &&
+                  field[origin.CONTENT] === type) {
+                result.push({ [msg.ID]: id, [msg.DATA]: message })
+                lastId = id
+              } else if (field[origin.CONTEXT] === context.UNSUBSCRIBE) {
+                if (field[origin.CONTENT][tun.TEAM] === tunnel[tun.TEAM] &&
+                    field[origin.CONTENT][tun.CONSUMER] ===
+                    tunnel[tun.CONSUMER]) {
+                  // Delete a unsubscribe message with a common nonblocking
+                  // Redis client.
+                  // Multiple unsubscribe messages are possible
+                  // for the same consumer and a team!!!
+                  await this._nonBlockRedisClient.xdel([tunnel[tun.KEY], id])
+
+                  if (unsubscribe === false) {
+                    // Cleanup a redis consumer and a group
+                    await this._deleteRedisConsumerAndGroup(tunnel)
+                    unsubscribe = true
+                  }
                 } else {
-                  // Puts back any message with an unsubscribe context.
-                  await this.unsubscribe(tunnel)
+                  // Create a message with an unsubscribe context for the right
+                  // consumer (only in a team work case).
+                  if (this._workInTeam) {
+                    const toUnsubscribeTunnel = {
+                      [tun.TEAM]: field[origin.CONTENT][tun.TEAM],
+                      [tun.CONSUMER]: field[origin.CONTENT][tun.CONSUMER],
+                      [tun.KEY]: tunnel[tun.KEY]
+                    }
+                    await this.unsubscribe(toUnsubscribeTunnel)
+                  }
                 }
               }
             }
@@ -454,13 +593,29 @@ class RedisChannels {
     }
   }
 
+  // TOODO
+  /*
+  * Acknowledges a message specified with an id.
+  */
+
+  /*
+  // --------------------------------------------------------------------------|
+  async acknowledge (tunnel, id) {
+    try {
+
+      await this._nonBlockRedisClient
+        .xack([tunnel[tun.KEY], tunnel[tun.TEAM], id])
+    } catch { }
+  }
+  */
+
   /*
   * Closes all redis clients and deletes all consumers and consumer groups
   */
   // --------------------------------------------------------------------------|
   async cleanup () {
     for (const i in this._consumers) {
-      await this._deleteRedisConsumerAndGroup(this._consumers[i])
+      await this._deleteRedisConsumerAndGroup(this._consumers[i], true)
 
       await this._consumers[i][tun.CONNECTION].quit()
       this._consumers[i][tun.CONNECTION].removeAllListeners()
@@ -474,28 +629,30 @@ class RedisChannels {
   * Deletes a redis consumer and a group
   */
   // --------------------------------------------------------------------------|
-  async _deleteRedisConsumerAndGroup (tunnel) {
+  async _deleteRedisConsumerAndGroup (tunnel, force = false) {
     try {
-      // Deletes a consumer
-      await this._nonBlockRedisClient.xgroup(['DELCONSUMER', tunnel[tun.KEY],
-        tunnel[tun.TEAM], tunnel[tun.CONSUMER]])
+      // Deletes a consumer and a consumer group
+      if (this._workInTeam === false || force) {
+        await this._nonBlockRedisClient.xgroup(['DELCONSUMER', tunnel[tun.KEY],
+          tunnel[tun.TEAM], tunnel[tun.CONSUMER]])
 
-      // Deletes a consumer group
-      const teams =
-        await this._nonBlockRedisClient.xinfo(['GROUPS', tunnel[tun.KEY]])
-      for (const i in teams) {
-        // We can not rely on fields exact positions - according to
-        // https://redis.io/commands/xinfo.
-        const k = teams[i].indexOf('name')
-        if (k < 0 || teams[i][k + 1] !== tunnel[tun.TEAM]) {
-          continue
+        // Deletes a consumer group
+        const teams =
+          await this._nonBlockRedisClient.xinfo(['GROUPS', tunnel[tun.KEY]])
+        for (const i in teams) {
+          // We can not rely on fields exact positions - according to
+          // https://redis.io/commands/xinfo.
+          const k = teams[i].indexOf('name')
+          if (k < 0 || teams[i][k + 1] !== tunnel[tun.TEAM]) {
+            continue
+          }
+          const j = teams[i].indexOf('consumers')
+          if (j >= 0 && teams[i][j + 1] === 0) {
+            await this._nonBlockRedisClient.xgroup(['DESTROY', tunnel[tun.KEY],
+              tunnel[tun.TEAM]])
+          }
+          break
         }
-        const j = teams[i].indexOf('consumers')
-        if (j >= 0 && teams[i][j + 1] === 0) {
-          await this._nonBlockRedisClient.xgroup(['DESTROY', tunnel[tun.KEY],
-            tunnel[tun.TEAM]])
-        }
-        break
       }
     } catch { }
   }

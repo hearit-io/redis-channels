@@ -5,18 +5,21 @@
 ![NPM License](https://img.shields.io/npm/l/@hearit-io/redis-channels)
 ![NPM Downloads](https://img.shields.io/npm/dt/@hearit-io/redis-channels)
 
+It is a fast, reliable, and scalable message broker implementation based on Redis streams.
 
-Fast, reliable, and scalable channels implementation based on Redis streams. 
+Suitable for IoT applications with massive network traffic, pub/sub-use cases, or any implementation with multiple producers/consumers.
 
-Suitable for IoT applications with a massive network traffic, pub/sub use cases or any implementation with multiple producers/consumers.
+Allows simple integration with SSE(Server-Sent Event)/WebSocket implementation. See our SSE Fastify based [example](https://github.com/hearit-io/fastify-redis-channels-sse-example).
 
-Implements a possiblity to scale the message processing across different consumers, without single consumers having to process all the messages. A group of consumers (a team) can cooperate consuming a different portion of the messages form the same channel.
+See a live SSE frontend implementation used in our `HEARIT.IO` project [here](https://app.hearit.io/static/app.hearit.io/push.mjs)
 
-Can be used with a single Redis instance and later updated easily to a cluster configuration without need of any application change. Under the hood [ioredis](https://github.com/luin/ioredis) is used as a client.
+Implements a possibility to scale the message processing across different consumers, without single consumers having to process all the messages. A group of consumers, working as a team, can cooperate and consume a separate portion of those messages from the same channel.
 
-Simple integration in web frameworks, already available plug-in [fastify-redis-channels](https://github.com/hearit-io/fastify-redis-channels#readme) for our favorite framework [Fastify](https://www.fastify.io/). 
+It can be used with a single Redis instance and later updated easily to a cluster configuration without the need for any application change. Under the hood [ioredis](https://github.com/luin/ioredis) is used as a client.
 
-The implementation uses native Promises. 
+Simple integration in web frameworks, already available plug-in [fastify-redis-channels](https://github.com/hearit-io/fastify-redis-channels#readme) for our favorite framework [Fastify](https://www.fastify.io/). See all step-by-step examples there. 
+
+The implementation uses native Promises.
 
 Do you want your project to grow? Then start right from the begging.
 
@@ -251,7 +254,7 @@ Subscribes a `tunnel` to make possible a consume operation.
 
 Returns a **Promise**.
 
-#### channels.consume(tunnel[, type = 'all', count = 100, timeout = 10000])
+#### channels.consume(tunnel[, type = 'all', count = 100, timeout = 10000, fromId = <time-in-milisecounds>-<sequence>, messageOnTimeOut = false])
 
 It is an asynchronous iterator which returns an array of messages. 
 
@@ -263,6 +266,8 @@ Every message is a couple of `{ id: <string>, data: <string> }`
 | type | string | 'all' | Identifies a message source (origination) to consume |
 | count | number | 100 | Defines a maximum number of messages consumed per iteration |
 | timeout | number | 10000 | A blocking timeout in milliseconds |
+| fromId | string | '>' or '*' | Starts consuming messages newer then a given id. Default value is set to `>` or `*` whether if it is consumed in a team or not. This means staring form messages that were never delivered to any other consumer. The format is <time-in-milisecounds>-<sequence> or only the miliseconds part of the id.|
+| messageOnTimeOut | boolean | false |If set, in a case of a timeout a message array [{id: <last-consumed-id> data: null}] will be returned to indecate it. If there were no consumed messages the id value will be undefined. This feature is usefull if you want to build in your consumer an additional functionality - for example sending to an SSE(Service Send Event)/websocket ping messages on every consumer timeout.|
 
 Returns a **Promise** to an Array of Objects.
 
@@ -324,7 +329,7 @@ catch (exception) {
 
 ## Running tests
 
-We bound to deliver the highest possible quality to our valuable open source community by implementing a 100 % test coverage for all packages.
+We want to deliver the highest possible quality to our valuable open source community by implementing 100 % test coverage for all packages.
 
 To run the test cases a running Redis server is required. 
 
@@ -436,7 +441,7 @@ The list of already implemented / planed features:
 - [x] Implement a scenario where all consumers are served with the same messages arrived in the channels.
 - [x] Add Benchmarks.
 - [x] Implement a scenario where consumers are served with the different part of the messages arrived in the channels (a work in a team).
-- [ ] Introduce a parameter in the `consume` method which allows starting message consuming form a given period in the past.
+- [x] Introduce a parameter in the `consume` method which allows starting message consuming form a given period in the past.
 - [ ] Implement consume with acknowledge functionality.
 - [ ] Implement a channel monitoring capability.
 - [ ] TypeScript support.
@@ -449,18 +454,21 @@ The list of already implemented / planed features:
 <img src="https://raw.githubusercontent.com/hearit-io/graphics/main/hearing-black-96dp.svg" width="48" height="48"/> | Smart home automatization designed for visually impaired people.
 ------------ | -------------
 
-**@heart-io/redis-channels** is used productive in our web [app](https://hearit.io/demo). The package will be updated and maintained in a regular base. 
+**@heart-io/redis-channels** is used productive in our progressive web [app](https://app.hearit.io). You can try it with a user `demo@hearit.io` and password: `11223344`
 
-The main goals of [hearit.io](https://hearit.io) is to make accessible the world of IoT to everyone. 
+The package will be updated and maintained regularly.
 
-No technological, design or speed compromises, we just do it. 
- 
-We will be grateful to you if you make awareness to other people of our project.
+The main goal of [hearit.io](https://hearit.io) is to make accessible the world of IoT to everyone. We created a speaking home suitable for all.
 
-Other useful packages, part of our project, will be available soon. We use [Fastify](http://fastify.io) as an application framework.
+We will be grateful to you if you make awareness to other people of our project. 
 
+To finance our idea, we would be glad to support and work on your projects. Contact [Emil](email:emil@hearit.io) for details and our availability.
+
+Other open-source packages, part of our project, will be available soon. We use [Fastify](http://fastify.io) as an application framework.
 
 ## Authors and acknowledgment
+
+Emil Usunov
 
 [hearit.io](https://hearit.io)
 

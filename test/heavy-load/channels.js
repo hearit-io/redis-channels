@@ -140,6 +140,8 @@ async function produce (number, channels, tunnel,
 module.exports = async function (core, tap, application, version,
   groupName, numberOfGroups, numberOfConsumersPerGroup,
   numberOfMessagesToProducePerGroup, sharded) {
+  numberOfMessagesToProducePerGroup =
+    parseInt(numberOfMessagesToProducePerGroup)
   try {
     // Create a channel
     const channelsOptions = {

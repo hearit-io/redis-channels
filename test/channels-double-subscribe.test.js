@@ -29,10 +29,9 @@ const { RedisChannels } = require('../')
 const { redis, flushdb, getRedisOptions } = require('./util')
 
 const groupPrefix = process.env.GROUP_PREFIX || 'GROUP'
-const numberOfGroups = process.env.NUMBER_OF_GROUPS || 1
-const numberOfMessagesToProducePerGroup =
-  process.env.NUMBER_OF_MESSAGES || 1
-const numberOfConsumersPerGroup = process.env.NUMBER_OF_CONSUMERS || 1
+const numberOfGroups = 1
+const numberOfMessagesToProducePerGroup = 1
+const numberOfConsumersPerGroup = 1
 
 tap.comment('Validates consumer behavior after blocking timeout expire')
 tap.comment('Group prefix : ' + groupPrefix)

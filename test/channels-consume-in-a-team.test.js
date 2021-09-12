@@ -26,9 +26,9 @@ const { redis, flushdb, getRedisOptions } = require('./util')
 
 const groupPrefix = process.env.GROUP_PREFIX || 'GROUP'
 
-const numberOfMessagesToProduce = process.env.NUMBER_OF_MESSAGES || 10
+const numberOfMessagesToProduce = 10
 
-const numberOfConsumers = process.env.NUMBER_OF_CONSUMERS || 4
+const numberOfConsumers = 4
 
 tap.comment('Validates consumer\'s team work')
 tap.comment('Group prefix : ' + groupPrefix)
@@ -63,7 +63,7 @@ async function main () {
       process.exit(0)
     })
 
-    tap.plan(16)
+    tap.plan(17)
 
     const channelsOptions = { application: 'test', version: 1 }
     const redisOptions = getRedisOptions()
@@ -80,7 +80,7 @@ async function main () {
     }
 
     // Subscribe consumers
-    await tap.test('Subscribe consumers', async t => {
+    await tap.test('Subscribe consumers (not generated)', async t => {
       for (const i in tunnels) {
         await channels.subscribe(tunnels[i], 'team', 'consumer-' + i)
         t.pass('Subscribed a consumer in \'team\' : ' + tunnels[i].consumer)
@@ -122,12 +122,20 @@ async function main () {
         numberOfMessagesToProduce, 'All messages has been consumed')
     })
 
-    const client = redis()
-    const consumers = await client.xinfo(['GROUPS', tunnels[0].key])
-    tap.equal(consumers.length, 0, 'No consumers for stream ' + tunnels[0].key)
+    let client = redis()
+    let info = await client.xinfo(['GROUPS', tunnels[0].key])
+    tap.equal(info[0][3], 4,
+      'There should be 4 consumers left for a stream ' + tunnels[0].key)
     await client.quit()
 
     await channels.cleanup()
+
+    client = redis()
+    info = await client.xinfo(['GROUPS', tunnels[0].key])
+    tap.equal(info.length, 0,
+      'There should be 0 consumers left for a stream ' + tunnels[0].key)
+    await client.quit()
+
     await tap.pass('All channels cleaned up.')
   } catch (error) {
     console.log(error)

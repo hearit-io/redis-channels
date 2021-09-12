@@ -33,10 +33,9 @@ const { getRedisOptions } = require('./util')
 process.env.REDIS_NODES = process.env.REDIS_DOWN_NODES || '127.0.0.1:3333'
 
 const groupPrefix = process.env.GROUP_PREFIX || 'GROUP'
-const numberOfGroups = process.env.NUMBER_OF_GROUPS || 1
-const numberOfMessagesToProducePerGroup =
-  process.env.NUMBER_OF_MESSAGES || 1
-const numberOfConsumersPerGroup = process.env.NUMBER_OF_CONSUMERS || 1
+const numberOfGroups = 1
+const numberOfMessagesToProducePerGroup = 1
+const numberOfConsumersPerGroup = 1
 
 tap.comment('Validates all methods in non sharded setup (no redis connection)')
 tap.comment('Dummy Redis node : ' + process.env.REDIS_NODES)

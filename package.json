@@ -1,6 +1,6 @@
 {
   "name": "@hearit-io/redis-channels",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "Redis pre-sharded chanells implementation",
   "main": "index.js",
   "type": "commonjs",
@@ -22,10 +22,15 @@
     "redis",
     "cluster",
     "pre-sharded",
-    "channels",
-    "open",
-    "fast",
-    "easy"
+    "channel",
+    "stream",
+    "message broker",
+    "produce",
+    "consume",
+    "pub/sub",
+    "websocket",
+    "SSE",
+    "eventsource"
   ],
   "author": "Emil Usunov <emil@hearit.io>",
   "license": "MIT",
@@ -35,18 +40,18 @@
   "homepage": "https://github.com/hearit-io/redis-channels#readme",
   "dependencies": {
     "abstract-logging": "^2.0.1",
-    "ioredis": "^4.19.2",
-    "uuid": "^8.3.1"
+    "ioredis": "^4.27.9",
+    "uuid": "^8.3.2"
   },
   "engines": {
     "node": ">=10.16.0"
   },
   "devDependencies": {
-    "coveralls": "^3.1.0",
+    "coveralls": "^3.1.1",
     "nyc": "^15.1.0",
-    "snazzy": "^8.0.0",
-    "standard": "^14.3.4",
-    "tap": "^14.10.8",
+    "snazzy": "^9.0.0",
+    "standard": "^16.0.3",
+    "tap": "^15.0.9",
     "tap-mocha-reporter": "^5.0.1"
   }
 }

@@ -7,7 +7,7 @@ then
 else
   echo "| NUMBER OF GROUPS = $NUMBER_OF_GROUPS"
 fi
-if [ -z $NUMBER_OF_MESSAGES]
+if [ -z $NUMBER_OF_MESSAGES ]
 then 
   echo "| NUMBER OF MESSAGES PER GROUP = 100"
 else
