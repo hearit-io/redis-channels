@@ -254,7 +254,7 @@ Subscribes a `tunnel` to make possible a consume operation.
 
 Returns a **Promise**.
 
-#### channels.consume(tunnel[, type = 'all', count = 100, timeout = 10000, fromId = <time-in-milisecounds>-<sequence>, messageOnTimeOut = false])
+#### channels.consume(tunnel[, type = 'all', count = 100, timeout = 10000, fromId = time_in_milisecounds-sequence, messageOnTimeOut = false])
 
 It is an asynchronous iterator which returns an array of messages. 
 
@@ -266,7 +266,7 @@ Every message is a couple of `{ id: <string>, data: <string> }`
 | type | string | 'all' | Identifies a message source (origination) to consume |
 | count | number | 100 | Defines a maximum number of messages consumed per iteration |
 | timeout | number | 10000 | A blocking timeout in milliseconds |
-| fromId | string | '>' or '*' | Starts consuming messages newer then a given id. Default value is set to `>` or `*` whether if it is consumed in a team or not. This means staring form messages that were never delivered to any other consumer. The format is <time-in-milisecounds>-<sequence> or only the miliseconds part of the id.|
+| fromId | string | '>' or '*' | Starts consuming messages newer then a given id. Default value is set to `>` or `*` whether if it is consumed in a team or not. This means staring form messages that were never delivered to any other consumer. The format is time_in_milisecounds-sequence or only the miliseconds part of the id.|
 | messageOnTimeOut | boolean | false |If set, in a case of a timeout a message array [{id: <last-consumed-id> data: null}] will be returned to indecate it. If there were no consumed messages the id value will be undefined. This feature is usefull if you want to build in your consumer an additional functionality - for example sending to an SSE(Service Send Event)/websocket ping messages on every consumer timeout.|
 
 Returns a **Promise** to an Array of Objects.
