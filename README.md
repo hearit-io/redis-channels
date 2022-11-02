@@ -89,7 +89,7 @@ async function main () {
 
     // Produce messages
     await channels.produce(tunnelProducer, 'Hello')
-    await channels.produce(tunnelProducer, 'Wold')
+    await channels.produce(tunnelProducer, 'World')
 
     // Unsubscribe all consumers
     await channels.unsubscribe(tunnelConsumerOne)
