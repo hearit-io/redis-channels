@@ -2,7 +2,7 @@
 
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](code_of_conduct.md)
 [![js-standard-style](https://img.shields.io/badge/code%20style-standard-brightgreen.svg?style=flat)](http://standardjs.com/)
-![NPM License](https://img.shields.io/npm/l/@hearit-io/redis-channels)
+![NPM License](https://img.shields.io/badge/License-MIT-blue)
 ![NPM Downloads](https://img.shields.io/npm/dt/@hearit-io/redis-channels)
 
 It is a fast, reliable, and scalable message broker implementation based on Redis streams.
