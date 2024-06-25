@@ -563,6 +563,9 @@ class RedisChannels {
                   if (unsubscribe === false) {
                     // Cleanup a redis consumer and a group
                     await this._deleteRedisConsumerAndGroup(tunnel)
+                    // Cleanup the connection for this consumer.
+                    await tunnel[tun.CONNECTION].quit()
+                    delete tunnel[tun.CONNECTION]
                     unsubscribe = true
                   }
                 } else {
@@ -617,8 +620,10 @@ class RedisChannels {
     for (const i in this._consumers) {
       await this._deleteRedisConsumerAndGroup(this._consumers[i], true)
 
-      await this._consumers[i][tun.CONNECTION].quit()
-      this._consumers[i][tun.CONNECTION].removeAllListeners()
+      if (typeof this._consumers[i][tun.CONNECTION] !== 'undefined') {
+        await this._consumers[i][tun.CONNECTION].quit()
+        this._consumers[i][tun.CONNECTION].removeAllListeners()
+      }
       delete this._consumers[i]
     }
     await this._nonBlockRedisClient.quit()
